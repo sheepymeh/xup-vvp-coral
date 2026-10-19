@@ -1,0 +1,6 @@
+fpga_part: xcvu13p-figd2104-2-e
+reference_hz: 100000000
+fabric_hz: 50000000
+scalar_fabric_hz: 60000000
+vme_fabric_hz: 30000000
+build_jobs: 4

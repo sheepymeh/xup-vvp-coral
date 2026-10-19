@@ -1,0 +1,34 @@
+# Match upstream version
+
+module(
+    name = "xup_vvp",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "coralnpu_hw", version = "0.0.1")
+local_path_override(
+    module_name = "coralnpu_hw",
+    path = "../coralnpu",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.9.2")
+bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "rules_python", version = "1.9.0")
+bazel_dep(name = "rules_scala", version = "7.2.6")
+bazel_dep(name = "rules_shell", version = "0.8.0")
+bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+
+scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+scala_config.settings(scala_version = "2.13.18")
+
+coralnpu_deps = use_extension("@coralnpu_hw//rules:extensions.bzl", "coralnpu_deps_ext")
+use_repo(
+    coralnpu_deps,
+    "coralnpu_pip_deps_pyelftools",
+    "coralnpu_pip_deps_pyyaml",
+    "lowrisc_opentitan_gh",
+    "nonhermetic",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.11.6")

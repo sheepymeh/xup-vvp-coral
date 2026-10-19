@@ -1,0 +1,76 @@
+CAPI=2:
+name: bittware:xup_vvp:coral:0.1
+description: XUP-VVP shell for CoralNPU AXI core
+
+filesets:
+  rtl:
+    depend: [bittware:xup_vvp:production_axi:0.1]
+    files:
+      - sources/rtl/xup_core_top.sv
+      - sources/rtl/xup_clock_reset.sv
+      - sources/rtl/fabric_reset.sv
+      - sources/rtl/status_regs.v: {file_type: verilogSource}  # Vivado requires Verilog for modules
+      - sources/upstream/fpga/rtl/clkgen_wrapper.sv
+      - sources/upstream/fpga/rtl/clkgen_xilultrascaleplus.sv
+    file_type: systemVerilogSource
+  constraints:
+    files: [sources/constraints/fabric_clock.xdc]
+    file_type: xdc
+  data:
+    files:
+      - sources/config/board.tcl
+      - sources/config/build_settings.tcl
+      - sources/generated/memory_map.tcl
+      - sources/generated/memory_map.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - sources/tcl/project_context.tcl
+      - sources/tcl/utils.tcl
+      - sources/tcl/setup/extmem_backend.tcl
+      - sources/tcl/setup/extmem_backends/onchip.tcl
+      - sources/tcl/setup/create_core_design.tcl
+      - sources/tcl/setup/create_core_bd.tcl
+      - sources/tcl/setup/create_jtag_fabric.tcl
+      - sources/tcl/synthesis/synthesis.tcl
+      - sources/upstream/fpga/check_pin_assignments.tcl
+    file_type: user
+  pcie:
+    files:
+      - sources/config/pcie_xdma.tcl
+      - sources/tcl/setup/pcie_host.tcl
+      - sources/constraints/pcie.xdc: {file_type: xdc}
+    file_type: user
+  setup:
+    files: [sources/tcl/setup_project.tcl]
+    file_type: tclSource
+
+parameters:
+  ClockFrequencyMhz:
+    datatype: int
+    paramtype: vlogparam
+    default: 50
+  PcieLanes:
+    datatype: int
+    paramtype: vlogparam
+    default: 4
+  XUP_PCIE:
+    datatype: bool
+    paramtype: vlogdefine
+
+targets:
+  default: &default
+    filesets:
+      - rtl
+      - constraints
+      - data
+      - pcie ? (pcie)
+      # Register RTL/headers before creating module references
+      - setup
+    parameters:
+      - ClockFrequencyMhz
+      - pcie ? (PcieLanes)
+      - pcie ? (XUP_PCIE=true)
+  synth:
+    <<: *default
+    flow: vivado
+    toplevel: xup_core_top
+    flow_options:
+      source_mgmt_mode: All

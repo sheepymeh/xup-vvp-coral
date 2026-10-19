@@ -1,0 +1,11 @@
+package(default_visibility = ["//visibility:public"])
+
+alias(
+    name = "coralnpu_v2",
+    actual = "@coralnpu_hw//platforms:coralnpu_v2",
+)
+
+alias(
+    name = "coralnpu_v2_semihosting",
+    actual = "@coralnpu_hw//platforms:coralnpu_v2_semihosting",
+)

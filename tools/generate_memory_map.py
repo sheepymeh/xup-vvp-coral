@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""Generate hardware constants/firmware linker scripts from the SoC memory map"""
+
+import argparse
+import re
+from pathlib import Path
+from typing import TypedDict, cast
+
+import yaml
+
+
+class MemoryRegion(TypedDict):
+    name: str
+    base: int
+    size: int
+    loadable: bool
+    executable: bool
+
+
+class MemoryMap(TypedDict):
+    regions: list[MemoryRegion]
+    core_csr: dict[str, int]
+    shell_registers: dict[str, int]
+
+
+class MapError(ValueError):
+    pass
+
+
+def validate_integer(
+    value: object, label: str, minimum: int = 0, maximum: int = 0xFFFFFFFF
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise MapError(f"{label} must be an integer")
+    if not minimum <= value <= maximum:
+        raise MapError(f"{label} outside [{minimum}, {maximum}]")
+    return value
+
+
+def validate_map(memory_map: object) -> MemoryMap:
+    if not isinstance(memory_map, dict):
+        raise MapError("map must be a YAML mapping")
+    regions = memory_map.get("regions")
+    if not isinstance(regions, list) or not regions:
+        raise MapError("regions must be a nonempty list")
+
+    by_name: dict[str, MemoryRegion] = {}
+    for region in regions:
+        name = region.get("name")
+        if not isinstance(name, str) or not name.isidentifier() or name in by_name:
+            raise MapError("region names must be unique identifiers")
+        base = validate_integer(region.get("base"), f"{name}.base")
+        size = validate_integer(region.get("size"), f"{name}.size", minimum=1)
+        if base % 4 or size % 4:
+            raise MapError(f"{name} base and size must be word-aligned")
+        if base + size > 1 << 32:
+            raise MapError(f"{name} wraps the address space")
+
+        for field in ("loadable", "executable"):
+            if not isinstance(region.get(field), bool):
+                raise MapError(f"{name}.{field} must be a boolean")
+        if region["executable"] and not region["loadable"]:
+            raise MapError(f"executable region {name} must be loadable")
+        by_name[name] = region
+
+    for name in ("itcm", "dtcm"):
+        if by_name[name]["size"] % 1024:
+            raise MapError(
+                f"upstream {name.upper()} size must be a whole KiB for firmware linking"
+            )
+
+    previous: MemoryRegion | None = None
+    for region in sorted(regions, key=lambda item: item["base"]):
+        if previous and region["base"] < previous["base"] + previous["size"]:
+            raise MapError(f"regions {previous['name']} and {region['name']} overlap")
+        previous = region
+
+    for label, entries, aperture in (
+        (
+            "core_csr",
+            [
+                memory_map["core_csr"][name]
+                for name in ("control_offset", "start_pc_offset", "status_offset")
+            ],
+            by_name["core_csr"],
+        ),
+        (
+            "shell_registers",
+            list(memory_map["shell_registers"].values()),
+            by_name["shell"],
+        ),
+    ):
+        if not isinstance(entries, list) or not entries:
+            raise MapError(f"{label} must define offsets")
+        if len(set(entries)) != len(entries):
+            raise MapError(f"{label} offsets must be unique")
+        for offset in entries:
+            validate_integer(offset, label)
+            if offset % 4 or offset + 4 > aperture["size"]:
+                raise MapError(f"{label} offset is unaligned or outside its aperture")
+
+    contract = memory_map["core_csr"]
+    validate_integer(contract["reset_bit"], "reset_bit", maximum=31)
+    validate_integer(contract["reset_value"], "reset_value", minimum=1)
+    if not contract["reset_value"] & (1 << contract["reset_bit"]):
+        raise MapError("reset_value must assert reset_bit")
+    return cast(MemoryMap, memory_map)
+
+
+def load_map(path: str | Path) -> MemoryMap:
+    try:
+        memory_map = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        return validate_map(memory_map)
+    except (OSError, yaml.YAMLError, AttributeError, TypeError, KeyError) as error:
+        raise MapError(f"cannot read map: {error}") from error
+
+
+def memory_map_constants(memory_map: MemoryMap) -> dict[str, int]:
+    values: dict[str, int] = {}
+    for region in memory_map["regions"]:
+        prefix = "XUP_" + region["name"].upper()
+        values[prefix + "_BASE"] = region["base"]
+        values[prefix + "_SIZE"] = region["size"]
+
+    for name, offset in memory_map["shell_registers"].items():
+        values["XUP_SHELL_" + name.upper() + "_OFFSET"] = offset
+
+    for name in (
+        "control_offset",
+        "start_pc_offset",
+        "status_offset",
+        "reset_bit",
+        "reset_value",
+    ):
+        values["XUP_CORE_CSR_" + name.upper()] = memory_map["core_csr"][name]
+    return values
+
+
+def render_files(memory_map: MemoryMap) -> dict[str, str]:
+    values = memory_map_constants(memory_map)
+    tcl = "# Generated by tools/generate_memory_map.py. Do not edit.\n"
+    tcl += "".join(f"set {name} 0x{value:08X}\n" for name, value in values.items())
+
+    sv_header = "// Generated by tools/generate_memory_map.py. Do not edit.\n`ifndef XUP_MEMORY_MAP_SVH\n`define XUP_MEMORY_MAP_SVH\n"
+    sv_header += "".join(
+        f"`define {name} 32'h{value:08X}\n" for name, value in values.items()
+    )
+    sv_header += "`endif\n"
+    return {"memory_map.tcl": tcl, "memory_map.svh": sv_header}
+
+
+def render_linker(memory_map: MemoryMap, template: str, stack_size: int) -> str:
+    regions = {region["name"]: region for region in memory_map["regions"]}
+    if not 0 < stack_size <= regions["dtcm"]["size"] or stack_size % 16:
+        raise MapError("stack size must be a multiple of 16 within DTCM")
+
+    # Upstream template fixes the boot address at zero
+    if regions["itcm"]["base"] != 0:
+        raise MapError("upstream linker template requires ITCM at address zero")
+    substitutions = {
+        "@@ITCM_LENGTH@@": str(regions["itcm"]["size"] // 1024),
+        "@@DTCM_LENGTH@@": str(regions["dtcm"]["size"] // 1024),
+        "@@DTCM_ORIGIN@@": f"0x{regions['dtcm']['base']:08X}",
+        "@@STACK_SIZE@@": str(stack_size),
+        "@@HEAP_LOCATION@@": "DTCM",
+        "@@HEAP_SIZE_SPEC@@": ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;",
+        "@@STACK_START_SPEC@@": "",
+    }
+
+    for token, value in substitutions.items():
+        if token not in template:
+            raise MapError(f"upstream linker template is missing {token}")
+        template = template.replace(token, value)
+    if "@@" in template:
+        raise MapError("upstream linker template contains an unknown placeholder")
+
+    # Upstream has separate EXTMEM/DDR apertures. This board shares one
+    # external window between both section names, bounded by the memory map
+    external = regions["external"]
+    template, count = re.subn(
+        r"(?m)^[ \t]*EXTMEM\(rw\):[^\n]*\n[ \t]*DDR\(rw\):[^\n]*\n\}",
+        f"    DDR(rw): ORIGIN = 0x{external['base']:08X}, LENGTH = 0x{external['size']:X}\n"
+        '}\nREGION_ALIAS("EXTMEM", DDR);',
+        template,
+    )
+    if count != 1:
+        raise MapError("upstream linker template must define EXTMEM/DDR")
+
+    # CRT calls every pointer between these symbols. Retain constructors under
+    # --gc-sections, honor priorities, keep padding outside the array
+    for kind in ("init", "fini"):
+        section = f"""    .{kind}.array : ALIGN(16) {{
+      __{kind}_array_start = .;
+      __{kind}_array_start__ = .;
+      KEEP(*(SORT_BY_INIT_PRIORITY(.{kind}_array.*)))
+      KEEP(*(.{kind}_array))
+      __{kind}_array_end = .;
+      __{kind}_array_end__ = .;
+      . = ALIGN(16);
+    }} > ITCM"""
+        template, count = re.subn(
+            rf"(?m)^[ \t]*\.{kind}\.array\s*:[^{{]*\{{[^}}]*\}}\s*>\s*ITCM",
+            section,
+            template,
+        )
+        if count != 1:
+            raise MapError(f"upstream linker template must define one .{kind}.array")
+
+    # crt_section_clear requires word-aligned BSS boundaries
+    template, count = re.subn(
+        r"(?m)^([ \t]*)__bss_end__\s*=\s*\.;",
+        r"\1. = ALIGN(4);\n\g<0>",
+        template,
+    )
+    if count != 1:
+        raise MapError("upstream linker template must define one __bss_end__")
+    return template
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--map", type=Path, required=True)
+    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--linker-template",
+        type=Path,
+        help="Render firmware linker script to --out instead of hardware constants",
+    )
+    parser.add_argument("--stack-size", type=int, default=2048)
+    args = parser.parse_args(argv)
+    try:
+        memory_map = load_map(args.map)
+        if args.linker_template:
+            rendered = {
+                args.out.name: render_linker(
+                    memory_map, args.linker_template.read_text(), args.stack_size
+                )
+            }
+            output = args.out.parent
+        else:
+            rendered = render_files(memory_map)
+            output = args.out
+        output.mkdir(parents=True, exist_ok=True)
+        for name, content in rendered.items():
+            (output / name).write_text(content, encoding="utf-8")
+
+        print(f"Memory map: {args.map} ({len(memory_map['regions'])} regions)")
+    except (MapError, OSError) as error:
+        parser.exit(1, f"map error: {error}\n")
+
+
+if __name__ == "__main__":
+    main()

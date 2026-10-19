@@ -1,0 +1,31 @@
+load("//integration:fpga.bzl", "xup_fpga_targets")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "jtag_scripts",
+    srcs = [
+        "tcl/post_build/control_core.tcl",
+        "tcl/post_build/jtag_axi.tcl",
+        "tcl/post_build/jtag_memory.tcl",
+        "tcl/post_build/jtag_session.tcl",
+        "tcl/post_build/program_fpga.tcl",
+    ],
+)
+
+xup_fpga_targets(name = "fusesoc_sources")
+
+[
+    alias(
+        name = command,
+        actual = "//tools:" + command,
+    )
+    for command in [
+        "program",
+        "load",
+        "run",
+        "stop",
+        "status",
+        "save_checkpoint",
+    ]
+]

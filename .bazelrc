@@ -1,0 +1,26 @@
+# Upstream dependencies still need Bazel 9 rule autoloads
+common --incompatible_autoload_externally=+@rules_cc,+@rules_shell,+@rules_python,+@com_google_protobuf
+common --noincompatible_disallow_empty_glob
+
+# CoralNPU's rc is not inherited; maintain host requirements here
+build --conlyopt=-std=gnu11
+build --cxxopt=-std=c++17
+build --host_copt=-O3
+build --host_cxxopt=-std=c++17
+build --host_features=-supports_start_end_lib
+build --host_linkopt=-fuse-ld=bfd
+build --repo_env=CC=clang
+build --java_runtime_version=remotejdk_11
+build --use_top_level_targets_for_symlinks=false
+
+# Vendor tools
+build --strategy=XupVivadoProject=local
+build --strategy=XupVivadoImplementation=local
+
+# Hardware presets
+build:scalar --//:core=scalar
+build:rvv --//:core=rvv
+build:vme --//:core=vme
+build:jtag --//:pcie=none
+build:debug --//:profile=debug
+build:release --//:profile=release

@@ -1,0 +1,77 @@
+"""Bazel adapters for building/accessing FPGA hardware"""
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+package(default_visibility = ["//visibility:private"])
+
+py_binary(
+    name = "save_checkpoint",
+    srcs = ["save_checkpoint.py"],
+    visibility = ["//:__subpackages__"],
+)
+
+py_binary(
+    name = "generate_memory_map",
+    srcs = ["generate_memory_map.py"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@coralnpu_pip_deps_pyyaml//:pkg"],
+)
+
+py_binary(
+    name = "export_fusesoc",
+    srcs = ["export_fusesoc.py"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@coralnpu_pip_deps_pyyaml//:pkg"],
+)
+
+py_library(
+    name = "memory_map",
+    srcs = ["generate_memory_map.py"],
+    imports = [".."],
+    deps = ["@coralnpu_pip_deps_pyyaml//:pkg"],
+)
+
+py_library(
+    name = "elf_image",
+    srcs = ["elf_image.py"],
+    imports = [".."],
+    deps = [
+        ":memory_map",
+        "@coralnpu_pip_deps_pyelftools//:pkg",
+    ],
+)
+
+py_library(
+    name = "jtag",
+    srcs = ["jtag.py"],
+    data = [
+        "//:jtag_scripts",
+        "//:memory_map",
+        "//config:hardware.yaml",
+        "//config:memory_map.yaml",
+    ],
+    imports = [".."],
+    deps = [
+        ":elf_image",
+        ":memory_map",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+[
+    py_binary(
+        name = command,
+        srcs = ["jtag.py"],
+        args = [command],
+        main = "jtag.py",
+        visibility = ["//visibility:public"],
+        deps = [":jtag"],
+    )
+    for command in [
+        "program",
+        "load",
+        "run",
+        "stop",
+        "status",
+    ]
+]

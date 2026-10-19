@@ -1,0 +1,14 @@
+__pycache__/
+*.jou
+*.log
+*.pyc
+*.str
+/.Xil/
+/build/
+/clockInfo.txt
+/cong/
+/generated/
+/reports/
+/results/
+/xvlog.pb
+/bazel-*

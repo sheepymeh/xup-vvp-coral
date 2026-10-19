@@ -1,0 +1,5 @@
+server: localhost:3121
+target: localhost:3121/xilinx_tcf/Digilent/210308A60A42
+device: xcvu13p_0
+axi: hw_axi_1
+pcie_bdf: '0000:06:00.0'

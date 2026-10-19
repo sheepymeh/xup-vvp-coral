@@ -1,0 +1,43 @@
+regions:
+  - name: itcm
+    base: 0x00000000
+    size: 0x00002000
+    loadable: true
+    executable: true
+
+  - name: dtcm
+    base: 0x00010000
+    size: 0x00008000
+    loadable: true
+    executable: false
+
+  - name: core_csr
+    base: 0x00030000
+    size: 0x00001000
+    loadable: false
+    executable: false
+
+  - name: shell
+    base: 0x40000000
+    size: 0x00010000
+    loadable: false
+    executable: false
+
+  - name: external
+    base: 0x80000000
+    size: 0x00040000
+    loadable: true
+    executable: false
+
+shell_registers:
+  heartbeat: 0x0c
+  readiness: 0x10
+  features: 0x18
+  fault: 0x1c
+
+core_csr:
+  control_offset: 0x00
+  start_pc_offset: 0x04
+  status_offset: 0x08
+  reset_bit: 0
+  reset_value: 3
