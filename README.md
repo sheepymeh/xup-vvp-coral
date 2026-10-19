@@ -1,6 +1,7 @@
 # CoralNPU on BittWare XUP-VVP
 
 Custom shell for CoralNPU with the BittWare XUP-VVP/CVP-13.
+This branch includes DIMM0 DDR4 support, pending testing with installed DIMMs.
 
 <details>
 <summary><strong>Architecture overview</strong></summary>
@@ -24,6 +25,9 @@ flowchart LR
 SmartConnect connects the core, JTAG, and XDMA to external memory.
 The JTAG host can also access status registers and the core's AXI slave.
 All memory addresses are global.
+
+The DDR4 MIG has its own UI clock domain, bridged to the fabric by an AXI
+clock converter. Calibration status is synchronized into fabric readiness.
 
 ### AXI widths and address limits
 
@@ -70,11 +74,13 @@ Available build settings are
 | --- | --- | --- |
 | `--//:core` | `scalar`, `rvv`, `vme` | `rvv` |
 | `--//:pcie` | `none`, `gen2x4`, `gen3x16` | `gen2x4` |
-| `--//:ext_mem` | `bram`, `uram` | `bram` |
+| `--//:ext_mem` | `bram`, `uram`, `dram` | `bram` |
 | `--//:profile` | `debug`, `release` | `release` |
 | `--//:incremental` | `true`, `false` | `true` |
 
-Presets in [`.bazelrc`](.bazelrc) include `scalar`, `rvv`, `vme`, `jtag`, `debug`, and `release`.
+Presets in [`.bazelrc`](.bazelrc) include `scalar`, `rvv`, `vme`, `jtag`, `debug`,
+`release`, and `dram`. The `ddr` preset aliases `dram`, and `vme-ddr` selects
+VME, DRAM and Gen2 x4 PCIe.
 
 <details>
 <summary><strong>Build stages</strong></summary>
@@ -134,7 +140,10 @@ The default external window ends at `0x8003ffff`, configurable with `external.si
 The largest contiguous window addressable by the core is 2 GiB.
 
 Only one backend is selected per build. The on-chip backends require a
-4 KiB-aligned base and a capacity divisible by 4 KiB. DDR4 support is coming soon.
+4 KiB-aligned base and a capacity divisible by 4 KiB.
+
+The DRAM backend uses one MIG-backed window with clock and width conversion.
+`external.size` controls its mapped aperture, without changing MIG geometry.
 
 </details>
 
@@ -168,6 +177,7 @@ Offsets relative to `0x40000000`:
 | `0x1c` | Fault | Core fatal-fault signal |
 
 Readiness value `3` means the fabric reset is released and external memory is ready.
+For DRAM, memory readiness includes MIG calibration.
 The loader waits up to 30 seconds for readiness `3` before loading.
 The `status` command can inspect status before readiness
 reaches `3`, and `stop` can assert reset without waiting for memory.
@@ -192,6 +202,34 @@ dma_from_device -d /dev/xdma0_c2h_0 -f output.bin -a 0x80000000 -s 1024
 ```
 
 PCIe builds replicate the PHY's final reset distribution register before routing to improve WNS.
+
+</details>
+
+## DIMM0 setup
+
+Select the DIMM backend with `--//:ext_mem=dram` or `--config=dram`. The
+included profile in [`config/dimm0_mig.tcl`](config/dimm0_mig.tcl) and
+[`config/dimm_parts/BLS4G4D240FSB.csv`](config/dimm_parts/BLS4G4D240FSB.csv)
+describes a one-rank, 64-bit `BLS4G4D240FSB-2400` UDIMM. It is an example
+profile: the installed DIMM must match its geometry and timing, or the profile
+and MIG settings must be updated. The build configures the selected profile;
+it does not identify the installed module automatically.
+
+<details>
+<summary><strong>DIMM bring-up</strong></summary>
+
+The memory map exposes a 256 KiB window by default; this is the mapped aperture,
+not the full capacity described by the DIMM profile. `external.size` controls
+that aperture.
+
+Before using a DIMM image:
+
+1. Verify the installed DIMM part and geometry against the MIG profile.
+2. Build and program an image configured for `dram`.
+3. Run `bazel run //:status` and confirm readiness is `3` before loading
+   firmware or issuing PCIe DMA to external memory.
+4. If readiness remains `1`, the fabric reset is released but external memory
+   is not ready; wait for calibration or diagnose the DIMM configuration.
 
 </details>
 

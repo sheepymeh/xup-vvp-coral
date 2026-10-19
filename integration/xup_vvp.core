@@ -38,6 +38,16 @@ filesets:
       - sources/tcl/setup/pcie_host.tcl
       - sources/constraints/pcie.xdc: {file_type: xdc}
     file_type: user
+  dimm:
+    files:
+      - sources/config/dimm0_mig.tcl
+      - sources/config/dimm_parts/BLS4G4D240FSB.csv
+      - sources/tcl/setup/extmem_backends/dram.tcl
+      - sources/rtl/xup_ddr4_powerup_reset.sv: {file_type: systemVerilogSource}
+      - sources/rtl/ddr4_ready_sync.sv: {file_type: systemVerilogSource}
+      - sources/constraints/dimm0.xdc: {file_type: xdc}
+      - sources/constraints/dimm0_startup_timing.xdc: {file_type: xdc}
+    file_type: user
   setup:
     files: [sources/tcl/setup_project.tcl]
     file_type: tclSource
@@ -54,6 +64,9 @@ parameters:
   XUP_PCIE:
     datatype: bool
     paramtype: vlogdefine
+  XUP_DIMM:
+    datatype: bool
+    paramtype: vlogdefine
 
 targets:
   default: &default
@@ -62,12 +75,14 @@ targets:
       - constraints
       - data
       - pcie ? (pcie)
+      - dimm ? (dimm)
       # Register RTL/headers before creating module references
       - setup
     parameters:
       - ClockFrequencyMhz
       - pcie ? (PcieLanes)
       - pcie ? (XUP_PCIE=true)
+      - dimm ? (XUP_DIMM=true)
   synth:
     <<: *default
     flow: vivado

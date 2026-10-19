@@ -24,6 +24,7 @@ proc xup_implementation::configure_implementation {} {
     foreach {property script} {
         STEPS.OPT_DESIGN.TCL.PRE implementation/finalize_synth.tcl
         STEPS.OPT_DESIGN.TCL.POST implementation/apply_incremental.tcl
+        STEPS.PLACE_DESIGN.TCL.PRE implementation/prepare_placement.tcl
         STEPS.ROUTE_DESIGN.TCL.PRE implementation/optimize_pcie_reset.tcl
         STEPS.ROUTE_DESIGN.TCL.POST implementation/check_route.tcl
         STEPS.WRITE_BITSTREAM.TCL.PRE implementation/check_bitstream.tcl
@@ -77,6 +78,25 @@ proc xup_implementation::apply_incremental {} {
     read_checkpoint -incremental -auto_incremental -directive RuntimeOptimized $checkpoint
     set ::XUP_INCREMENTAL_LOADED 1
     report_incremental_reuse -quiet -file [file join $report_dir incremental_initial.rpt]
+}
+
+proc xup_implementation::prepare_placement {} {
+    global XUP_EXT_MEM XUP_VME_ENABLED
+
+    if {$XUP_EXT_MEM ne "dram" || !$XUP_VME_ENABLED} {
+        return
+    }
+
+    # Reserve DIMM0 clock regions X4Y5-X4Y7 for MIG
+    set region [create_pblock pblock_dimm0_mig]
+    resize_pblock $region -add {
+        SLICE_X117Y300:SLICE_X145Y479
+        RAMB18_X8Y120:RAMB18_X9Y191
+        RAMB36_X8Y60:RAMB36_X9Y95
+        DSP48E2_X16Y120:DSP48E2_X19Y191
+    }
+    add_cells_to_pblock $region [get_cells {fabric/core_bd_i/extmem_mig}]
+    set_property -dict {IS_SOFT false EXCLUDE_PLACEMENT true CONTAIN_ROUTING false} $region
 }
 
 proc xup_implementation::optimize_pcie_reset {} {
@@ -236,7 +256,7 @@ proc xup_implementation::check_bitstream {} {
                 set pattern {There (?:are|is) ([0-9]+) input ports? with no input delay specified\.}
             }
             no_output_delay {
-                # Exclude false-pathed asynchronous outputs
+                # Exclude false-pathed outputs such as DIMM RESET_n
                 set pattern {There (?:are|is) ([0-9]+) ports? with no output delay specified\.}
             }
             default {

@@ -15,6 +15,24 @@ module xup_core_top #(
     , output logic [PcieLanes-1:0] pci_exp_txp
     , output logic [PcieLanes-1:0] pci_exp_txn
 `endif
+`ifdef XUP_DIMM
+    , input wire logic dimm0_refclk_clk_p
+    , input wire logic dimm0_refclk_clk_n
+    , output wire C0_DDR4_0_act_n
+    , output wire [16:0] C0_DDR4_0_adr
+    , output wire [1:0] C0_DDR4_0_ba
+    , output wire [1:0] C0_DDR4_0_bg
+    , output wire [0:0] C0_DDR4_0_cke
+    , output wire [0:0] C0_DDR4_0_odt
+    , output wire [0:0] C0_DDR4_0_cs_n
+    , output wire [0:0] C0_DDR4_0_ck_t
+    , output wire [0:0] C0_DDR4_0_ck_c
+    , output wire C0_DDR4_0_reset_n
+    , inout wire [63:0] C0_DDR4_0_dq
+    , inout wire [7:0] C0_DDR4_0_dqs_c
+    , inout wire [7:0] C0_DDR4_0_dqs_t
+    , inout wire [7:0] C0_DDR4_0_dm_n
+`endif
 );
     logic fabric_clk;
     logic fabric_aresetn;
@@ -161,6 +179,24 @@ module xup_core_top #(
         , .pci_exp_rxn(pci_exp_rxn)
         , .pci_exp_txp(pci_exp_txp)
         , .pci_exp_txn(pci_exp_txn)
+`endif
+`ifdef XUP_DIMM
+        , .dimm0_refclk_clk_p(dimm0_refclk_clk_p)
+        , .dimm0_refclk_clk_n(dimm0_refclk_clk_n)
+        , .C0_DDR4_0_act_n(C0_DDR4_0_act_n)
+        , .C0_DDR4_0_adr(C0_DDR4_0_adr)
+        , .C0_DDR4_0_ba(C0_DDR4_0_ba)
+        , .C0_DDR4_0_bg(C0_DDR4_0_bg)
+        , .C0_DDR4_0_cke(C0_DDR4_0_cke)
+        , .C0_DDR4_0_odt(C0_DDR4_0_odt)
+        , .C0_DDR4_0_cs_n(C0_DDR4_0_cs_n)
+        , .C0_DDR4_0_ck_t(C0_DDR4_0_ck_t)
+        , .C0_DDR4_0_ck_c(C0_DDR4_0_ck_c)
+        , .C0_DDR4_0_reset_n(C0_DDR4_0_reset_n)
+        , .C0_DDR4_0_dq(C0_DDR4_0_dq)
+        , .C0_DDR4_0_dqs_c(C0_DDR4_0_dqs_c)
+        , .C0_DDR4_0_dqs_t(C0_DDR4_0_dqs_t)
+        , .C0_DDR4_0_dm_n(C0_DDR4_0_dm_n)
 `endif
     );
 endmodule

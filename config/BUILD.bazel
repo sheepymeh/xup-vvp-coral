@@ -2,7 +2,8 @@ package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "board.yaml",
+    "dimm0_mig.tcl",
     "hardware.yaml",
     "memory_map.yaml",
     "pcie_xdma.tcl",
-])
+] + glob(["dimm_parts/*.csv"]))

@@ -26,7 +26,19 @@ set report_dir [file join $xup_work_dir reports]
 
 # External memory banks
 source [file join $root_dir tcl setup extmem_backend.tcl]
-set XUP_EXTMEM_BANKS [extmem_backend::onchip::split_aligned_banks $XUP_EXTERNAL_BASE \
-    $XUP_EXT_MEM $XUP_EXTERNAL_SIZE]
+if {[extmem_backend::is_onchip $XUP_EXT_MEM]} {
+    set XUP_EXTMEM_BANKS [extmem_backend::onchip::split_aligned_banks $XUP_EXTERNAL_BASE \
+        $XUP_EXT_MEM $XUP_EXTERNAL_SIZE]
+} else {
+    set XUP_EXTMEM_BANKS [list [dict create \
+        kind $XUP_EXT_MEM \
+        prefix extmem \
+        base $XUP_EXTERNAL_BASE \
+        size $XUP_EXTERNAL_SIZE\
+    ]]
+    if {$XUP_EXT_MEM eq "dram"} {
+        source [file join $root_dir config dimm0_mig.tcl]
+    }
+}
 
 file mkdir $release_dir $report_dir

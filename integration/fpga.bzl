@@ -139,7 +139,7 @@ def _implement_impl(ctx):
     project = ctx.actions.declare_directory(ctx.label.name + "/" + _SYSTEM)
     hooks = _hooks(
         ctx,
-        ["finalize_synth", "apply_incremental", "optimize_pcie_reset", "check_route", "check_bitstream", "capture_release"],
+        ["finalize_synth", "apply_incremental", "prepare_placement", "optimize_pcie_reset", "check_route", "check_bitstream", "capture_release"],
         "implementation/macros.tcl",
     )
     scripts = ctx.files.scripts + hooks
@@ -261,7 +261,7 @@ def xup_fpga_targets(name):
     string_flag(name = "core", build_setting_default = "rvv", values = ["scalar", "rvv", "vme"])
     string_flag(name = "pcie", build_setting_default = "gen2x4", values = ["none", "gen2x4", "gen3x16"])
     string_flag(name = "profile", build_setting_default = "release", values = ["debug", "release"])
-    string_flag(name = "ext_mem", build_setting_default = "bram", values = ["bram", "uram"])
+    string_flag(name = "ext_mem", build_setting_default = "bram", values = ["bram", "uram", "dram"])
     bool_flag(name = "incremental", build_setting_default = True)
     for kind in ["scalar", "rvv", "vme"]:
         native.config_setting(name = "core_" + kind, flag_values = {":core": kind})
@@ -293,10 +293,21 @@ def xup_fpga_targets(name):
             "constraints/fabric_clock.xdc",
         ],
         exclude = [
+            "rtl/xup_ddr4_powerup_reset.sv",
+            "rtl/ddr4_ready_sync.sv",
             "tcl/setup/pcie_host.tcl",
         ],
     ) + [
         "tcl/setup/extmem_backends/onchip.tcl",
+    ]
+    dimm_sources = [
+        "//config:dimm0_mig.tcl",
+        "//config:dimm_parts/BLS4G4D240FSB.csv",
+        "constraints/dimm0.xdc",
+        "constraints/dimm0_startup_timing.xdc",
+        "rtl/xup_ddr4_powerup_reset.sv",
+        "rtl/ddr4_ready_sync.sv",
+        "tcl/setup/extmem_backends/dram.tcl",
     ]
     pcie_sources = [
         "//config:pcie_xdma.tcl",
@@ -310,7 +321,7 @@ def xup_fpga_targets(name):
         profile = ":profile",
         ext_mem = ":ext_mem",
         board = "//config:board.yaml",
-        board_sources = common_sources + pcie_sources,
+        board_sources = common_sources + dimm_sources + pcie_sources,
         upstream_sources = [
             "@coralnpu_hw//fpga:check_pin_assignments.tcl",
             "@coralnpu_hw//fpga/rtl:clkgen_wrapper.sv",

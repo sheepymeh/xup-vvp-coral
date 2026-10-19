@@ -19,5 +19,17 @@ set_property generate_synth_checkpoint false [get_files {*/core_jtag_axi.xci}]
 generate_target all [get_ips {core_jtag_axi}]
 update_compile_order -fileset sources_1
 
+# Custom DIMM profile
+if {$XUP_EXT_MEM eq "dram"} {
+    set dimm_profile [file join $root_dir config dimm_parts BLS4G4D240FSB.csv]
+    if {![file isfile $dimm_profile]} {
+        error "Missing custom DIMM parts CSV: $dimm_profile"
+    }
+    if {![llength [get_files -all -quiet *BLS4G4D240FSB.csv]]} {
+        import_files -norecurse $dimm_profile
+        update_compile_order -fileset sources_1
+    }
+}
+
 # Core block design
 source [file join $root_dir tcl setup create_core_bd.tcl]

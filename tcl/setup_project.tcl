@@ -19,6 +19,16 @@ add_files -norecurse [file join $root_dir generated memory_map.svh]
 set_param general.maxThreads $XUP_BUILD_JOBS
 set_param synth.maxThreads $XUP_BUILD_JOBS
 
+if {$XUP_EXT_MEM eq "dram"} {
+    # STARTUPE3 clock pins appear after linking
+    set startup [get_files -quiet *dimm0_startup_timing.xdc]
+    if {[llength $startup] != 1} {
+        error "Expected 1 DIMM startup timing constraint"
+    }
+    set_property USED_IN_SYNTHESIS false $startup
+    set_property USED_IN_IMPLEMENTATION true $startup
+}
+
 set pending_gate [open [file join $report_dir build_gates.txt] w]
 puts $pending_gate "result=NOT_RUN"
 close $pending_gate

@@ -81,6 +81,7 @@ def export(arguments: argparse.Namespace) -> None:
     synth_target = board_core["targets"]["synth"]
     synth_target["flags"] = {
         "pcie": arguments.pcie != "none",
+        "dimm": arguments.ext_mem == "dram",
     }
     synth_target["flow_options"].update(
         part=board["fpga_part"], jobs=board["build_jobs"]
@@ -151,7 +152,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--core", choices=("scalar", "rvv", "vme"), required=True)
     parser.add_argument("--pcie", choices=("none", "gen2x4", "gen3x16"), required=True)
     parser.add_argument("--profile", choices=("debug", "release"), default="release")
-    parser.add_argument("--ext-mem", choices=("bram", "uram"), required=True)
+    parser.add_argument("--ext-mem", choices=("bram", "uram", "dram"), required=True)
     parser.add_argument("--board-source", action="append", default=[])
     parser.add_argument("--upstream-root", required=True)
     parser.add_argument("--upstream-source", action="append", default=[])

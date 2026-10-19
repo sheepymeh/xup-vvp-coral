@@ -67,7 +67,8 @@ foreach bank $XUP_EXTMEM_BANKS {
     connect_bd_net [get_bd_ports {fabric_aresetn}] {*}[dict get $memory_bank reset_pins]
     lappend extmem_banks $memory_bank
 }
-# On-chip banks share fabric reset and become ready together
+# On-chip banks share fabric reset/become ready together
+# DRAM uses one MIG window without bank splitting
 connect_bd_net [dict get [lindex $extmem_banks 0] ready_pin] [get_bd_pins {status/extmem_ready}]
 
 # Host-to-width converter
