@@ -234,7 +234,7 @@
   "moduleExtensions": {
     "@@coralnpu_hw+//rules:extensions.bzl%coralnpu_deps_ext": {
       "general": {
-        "bzlTransitiveDigest": "ObmvyYbZKCeXwbrHAFf7LUVWUJ9VW4oCK9/QO5eyIWQ=",
+        "bzlTransitiveDigest": "SVX2mlI833n7+y0HN1pUjV9CoiOcChXNIUii8N3E/Z8=",
         "usagesDigest": "lYcPaLfi649dFPhhoyDoDrEuAlygjRZiSBXAhrNr6Bg=",
         "recordedInputs": [
           "REPO_MAPPING:coralnpu_hw+,bazel_tools bazel_tools",
@@ -422,9 +422,11 @@
                 "@@coralnpu_hw+//third_party:mpact-riscv-openat.patch",
                 "@@coralnpu_hw+//third_party/patches:mpact_riscv_mepc_mask.patch",
                 "@@coralnpu_hw+//third_party/patches:mpact_riscv_mstatus_vs.patch",
+                "@@coralnpu_hw+//third_party/patches:mpact_riscv_rvv_lsu_legality.patch",
                 "@@coralnpu_hw+//third_party/patches:mpact_riscv_vector_csr.patch",
                 "@@coralnpu_hw+//third_party/patches:mpact_riscv_vstart_trap.patch",
-                "@@coralnpu_hw+//third_party/patches:mpact_riscv_widening_reduction.patch"
+                "@@coralnpu_hw+//third_party/patches:mpact_riscv_widening_reduction.patch",
+                "@@coralnpu_hw+//third_party/patches:mpact_riscv_zvt_alignment.patch"
               ],
               "patch_args": [
                 "-p1"
@@ -445,7 +447,9 @@
                 "@@coralnpu_hw+//third_party/coralnpu_mpact:0003-Hardwire-mtvec-direct-mode.patch",
                 "@@coralnpu_hw+//third_party/coralnpu_mpact:0004-Fix-mpact-riscv-includes.patch",
                 "@@coralnpu_hw+//third_party/coralnpu_mpact:0006-Fix-svdpi-includes.patch",
-                "@@coralnpu_hw+//third_party/coralnpu_mpact:0007-Add-matrix-tile-DPI-accessors.patch"
+                "@@coralnpu_hw+//third_party/coralnpu_mpact:0007-Add-matrix-tile-DPI-accessors.patch",
+                "@@coralnpu_hw+//third_party/coralnpu_mpact:0008-CoralNPU-M4-alignment.patch",
+                "@@coralnpu_hw+//third_party/coralnpu_mpact:0009-Validate-rvv-lsu-legality.patch"
               ],
               "patch_args": [
                 "-p1"
@@ -797,7 +801,8 @@
                 "@@coralnpu_hw+//third_party/spike:0005-Force-logging-in-vcompress.patch",
                 "@@coralnpu_hw+//third_party/spike:0006-Hardwire-misa-as-read-only-WARL.patch",
                 "@@coralnpu_hw+//third_party/spike:0007-Rename-yield-macro-avoid-boost-std-conflict.patch",
-                "@@coralnpu_hw+//third_party/spike:0008-Link-libstdc-explicitly-in-LIBS.patch"
+                "@@coralnpu_hw+//third_party/spike:0008-Link-libstdc-explicitly-in-LIBS.patch",
+                "@@coralnpu_hw+//third_party/spike:0009-Fix-Zvt-and-CoralNPU-mstatus-alignment.patch"
               ],
               "patch_args": [
                 "-p1"
