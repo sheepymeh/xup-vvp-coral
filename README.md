@@ -13,15 +13,20 @@ flowchart LR
     JTAG[JTAG AXI<br/>32-bit] --> JMUX[JTAG SmartConnect]
     JMUX --> STATUS[Status registers]
     JMUX --> CW[32-to-128-bit converter]
-    CW --> CORE[CoralNPU core<br/>ITCM/DTCM/CSR]
+    CW --> CA[Core access SmartConnect]
+    CA --> CORE[CoralNPU core<br/>ITCM/DTCM/CSR]
     JMUX --> EMUX[External memory SmartConnect]
     CORE -->|M_AXI| EMUX
+    EMUX -->|Registers| DMA[TileLink DMA<br/>with AXI adapter]
+    DMA -->|M_AXI| DM[DMA memory SmartConnect]
+    DM --> CA
+    DM --> EMUX
     XDMA[Optional XDMA] --> PCIECONV[Width conversion when needed]
     PCIECONV --> EMUX
     EMUX --> MEM[External memory]
 ```
 
-SmartConnect connects the core, JTAG, and XDMA to external memory.
+SmartConnect connects the core, DMA, JTAG, and XDMA to external memory.
 The JTAG host can also access status registers and the core's AXI slave.
 All memory addresses are global.
 
@@ -125,6 +130,7 @@ The defaults are:
 | DTCM | `0x00010000` | 32 KiB | Loadable data and stack |
 | Core CSR | `0x00030000` | 4 KiB | Core control and status registers |
 | Shell registers | `0x40000000` | 64 KiB | Read-only board status |
+| DMA registers | `0x40050000` | 4 KiB | DMA control and status |
 | External memory | `0x80000000` | 256 KiB | Loadable data for the selected backend |
 
 <details>
@@ -208,6 +214,19 @@ The programmer uses a sibling `.ltx` file when available.
 If XDMA is enabled, stop all host DMA clients before programming.
 The programmer removes the configured PCIe endpoint before programming
 and rescans the PCI bus after.
+
+## DMA AXI adapter
+
+`hdl/chisel/DmaAxi.scala` wraps CoralNPU's TileLink DMA engine with a 32-bit
+AXI control port and a 128-bit AXI memory port, both with 6-bit transaction IDs.
+DMA registers occupy `0x40050000` through `0x40050FFF`. Its memory port can
+access ITCM, DTCM and external memory through the board AXI fabric.
+
+```sh
+bazel build //hdl/chisel:DmaAxi.sv
+bazel test //tests/dma:dma_axi_test --jobs=4
+bazel build --config=scalar --config=jtag //:build_bitstream //firmware:dma_copy_test.elf
+```
 
 ## Firmware build
 

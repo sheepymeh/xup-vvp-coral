@@ -7,6 +7,7 @@ filesets:
     depend: [bittware:xup_vvp:production_axi:0.1]
     files:
       - sources/rtl/xup_core_top.sv
+      - sources/rtl/dma_axi.v: {file_type: verilogSource}
       - sources/rtl/xup_clock_reset.sv
       - sources/rtl/fabric_reset.sv
       - sources/rtl/status_regs.v: {file_type: verilogSource}  # Vivado requires Verilog for modules

@@ -1,0 +1,11 @@
+load("@coralnpu_hw//rules:coco_tb.bzl", "verilator_cocotb_test")
+
+verilator_cocotb_test(
+    name = "dma_axi_test",
+    size = "small",
+    hdl_toplevel = "DmaAxi",
+    model = "//hdl/chisel:dma_axi_model",
+    test_module = ["test_dma_axi.py"],
+    waves = False,
+    deps = ["@coralnpu_hw//coralnpu_test_utils:axi_slave"],
+)

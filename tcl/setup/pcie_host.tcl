@@ -45,7 +45,7 @@ proc xup_pcie::attach {} {
         set fabric_axi_master pcie_width_converter/M_AXI
     }
 
-    connect_bd_intf_net [get_bd_intf_pins $fabric_axi_master] [get_bd_intf_pins {extmem_interconnect/S02_AXI}]
+    connect_bd_intf_net [get_bd_intf_pins $fabric_axi_master] [get_bd_intf_pins {extmem_interconnect/S03_AXI}]
     connect_bd_net \
         [get_bd_pins {pcie_xdma/axi_aclk}] \
         [get_bd_pins {pcie_clock_converter/s_axi_aclk}]

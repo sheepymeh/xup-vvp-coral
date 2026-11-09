@@ -1,6 +1,7 @@
 """Package board sources/production RTL into FuseSoC cores"""
 
 import argparse
+import re
 import shutil
 import zipfile
 from pathlib import Path
@@ -55,6 +56,16 @@ def export(arguments: argparse.Namespace) -> None:
     copy_core_rtl(
         arguments.rtl, destination / "generated/core/rtl", arguments.rtl_resources
     )
+
+    # Separate Chisel emissions can reuse helper-module names
+    dma_text = Path(arguments.dma_rtl).read_text()
+    modules = re.findall(r"(?m)^module\s+(\w+)", dma_text)
+    dma_text = re.sub(
+        r"\b(" + "|".join(map(re.escape, modules)) + r")\b",
+        lambda match: "DmaIntegration_" + match[0],
+        dma_text,
+    )
+    (generated / "core/rtl/dma.sv").write_text(dma_text)
 
     core_module = {
         "scalar": "CoreMiniAxi",
@@ -139,6 +150,7 @@ def main(argv: list[str] | None = None) -> None:
         "core-output",
         "production-core-output",
         "core-binding",
+        "dma-rtl",
         "board",
         "package",
         "template",

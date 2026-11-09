@@ -5,6 +5,16 @@ set_property CONFIG.FEATURES \
     [expr {1 | ($XUP_RVV_ENABLED << 1) | ($XUP_VME_ENABLED << 2)}] \
     [get_bd_cells {status}]
 
+create_bd_cell -type module -reference dma_axi dma
+foreach {name inputs outputs} {core_access 2 1 dma_memory 1 2} {
+    create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 $name
+    set_property -dict [list CONFIG.NUM_SI $inputs CONFIG.NUM_MI $outputs CONFIG.NUM_CLKS 1] [get_bd_cells $name]
+    connect_bd_net [get_bd_ports fabric_clk] [get_bd_pins $name/aclk]
+    connect_bd_net [get_bd_ports fabric_aresetn] [get_bd_pins $name/aresetn]
+}
+connect_bd_net [get_bd_ports fabric_clk] [get_bd_pins dma/aclk]
+connect_bd_net [get_bd_ports fabric_aresetn] [get_bd_pins dma/aresetn]
+
 # Boot from ITCM. Disable external interrupts/debug requests
 create_bd_cell -type module -reference core_mini_axi core
 foreach {name width value} {
@@ -49,12 +59,12 @@ set_property -dict [list \
     CONFIG.SI_ID_WIDTH 6 \
 ] [get_bd_cells {jtag_core_width_converter}]
 
-# Arbitrate external memory access between core/JTAG/XDMA
+# Arbitrate memory and DMA register access between core/JTAG/DMA/XDMA
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 extmem_interconnect
 set bank_count [llength $XUP_EXTMEM_BANKS]
 set_property -dict [list \
-    CONFIG.NUM_SI [expr {$XUP_PCIE_ENABLED ? 3 : 2}] \
-    CONFIG.NUM_MI $bank_count \
+    CONFIG.NUM_SI [expr {$XUP_PCIE_ENABLED ? 4 : 3}] \
+    CONFIG.NUM_MI [expr {$bank_count + 1}] \
     CONFIG.NUM_CLKS 1 \
 ] [get_bd_cells {extmem_interconnect}]
 set extmem_banks {}
@@ -73,13 +83,18 @@ connect_bd_net [dict get [lindex $extmem_banks 0] ready_pin] [get_bd_pins {statu
 # Host-to-width converter
 connect_bd_intf_net [get_bd_intf_pins {jtag_interconnect/M01_AXI}] [get_bd_intf_pins {jtag_core_width_converter/S_AXI}]
 # Width converter to core (ITCM/DTCM/CSR)
-connect_bd_intf_net [get_bd_intf_pins {jtag_core_width_converter/M_AXI}] [get_bd_intf_pins {core/S_AXI}]
+connect_bd_intf_net [get_bd_intf_pins jtag_core_width_converter/M_AXI] [get_bd_intf_pins core_access/S00_AXI]
+connect_bd_intf_net [get_bd_intf_pins core_access/M00_AXI] [get_bd_intf_pins core/S_AXI]
+connect_bd_intf_net [get_bd_intf_pins dma/M_AXI] [get_bd_intf_pins dma_memory/S00_AXI]
+connect_bd_intf_net [get_bd_intf_pins dma_memory/M00_AXI] [get_bd_intf_pins core_access/S01_AXI]
+connect_bd_intf_net [get_bd_intf_pins dma_memory/M01_AXI] [get_bd_intf_pins extmem_interconnect/S02_AXI]
+connect_bd_intf_net [get_bd_intf_pins [format extmem_interconnect/M%02d_AXI $bank_count]] [get_bd_intf_pins dma/S_AXI]
 # Host-to-external memory path
 connect_bd_intf_net [get_bd_intf_pins {jtag_interconnect/M02_AXI}] [get_bd_intf_pins {extmem_interconnect/S00_AXI}]
 # Core-to-external memory path
 connect_bd_intf_net [get_bd_intf_pins {core/M_AXI}] [get_bd_intf_pins {extmem_interconnect/S01_AXI}]
 # JTAG AXI enters top through S_AXI_HOST
-set extmem_address_spaces [list [get_bd_addr_spaces {S_AXI_HOST}] [get_bd_addr_spaces {core/M_AXI}]]
+set extmem_address_spaces [list [get_bd_addr_spaces {S_AXI_HOST}] [get_bd_addr_spaces {core/M_AXI}] [get_bd_addr_spaces {dma/M_AXI}]]
 if {$XUP_PCIE_ENABLED} {
     source [file join $root_dir tcl setup pcie_host.tcl]
     lappend extmem_address_spaces [xup_pcie::attach]
@@ -114,6 +129,13 @@ foreach {name base size} [list \
     csr $XUP_CORE_CSR_BASE $XUP_CORE_CSR_SIZE \
 ] {
     create_bd_addr_seg -range $size -offset $base $jtag_address_space $core_segment SEG_core_$name
+}
+# DMA accesses TCM through the core's AXI slave port
+foreach {name base size} [list itcm $XUP_ITCM_BASE $XUP_ITCM_SIZE dtcm $XUP_DTCM_BASE $XUP_DTCM_SIZE] {
+    create_bd_addr_seg -range $size -offset $base [get_bd_addr_spaces dma/M_AXI] $core_segment SEG_dma_$name
+}
+foreach space [list $jtag_address_space $core_address_space] {
+    assign_bd_address -offset $XUP_DMA_BASE -range $XUP_DMA_SIZE -target_address_space $space [get_bd_addr_segs dma/S_AXI/reg0] -force
 }
 # External memory region
 foreach memory_bank $extmem_banks {

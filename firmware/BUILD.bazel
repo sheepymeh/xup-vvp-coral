@@ -1,1 +1,15 @@
+load("//integration:firmware.bzl", "xup_firmware_binary")
+
 package(default_visibility = ["//visibility:public"])
+
+xup_firmware_binary(
+    name = "dma_copy_test",
+    srcs = ["@coralnpu_hw//fpga:sw/dma_copy_test.cc"],
+    copts = ["-Os"],
+    core = "scalar",
+    stack_size_bytes = 1024,
+    deps = [
+        "@coralnpu_hw//fpga:dma",
+        "@coralnpu_hw//sw/utils",
+    ],
+)

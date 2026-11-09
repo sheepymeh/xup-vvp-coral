@@ -221,10 +221,11 @@ def _export_impl(ctx):
     args.add("--rtl", [file for file in ctx.files.production_axi if file.extension == "sv"][0].path)
     args.add("--rtl-resources", [file for file in ctx.files.production_axi if file.extension == "zip"][0].path)
     args.add("--core-binding", ctx.file.core_binding.path)
+    args.add("--dma-rtl", ctx.file.dma_rtl.path)
     ctx.actions.run(
         executable = ctx.executable.exporter,
         arguments = [args],
-        inputs = ctx.files.board_sources + ctx.files.upstream_sources + ctx.files.production_axi + [ctx.file.board, ctx.file.template, ctx.file.core_binding, ctx.file.map_tcl, ctx.file.map_header],
+        inputs = ctx.files.board_sources + ctx.files.upstream_sources + ctx.files.production_axi + [ctx.file.board, ctx.file.template, ctx.file.core_binding, ctx.file.dma_rtl, ctx.file.map_tcl, ctx.file.map_header],
         outputs = [bundle],
         mnemonic = "XupFuseSoCSources",
     )
@@ -245,6 +246,7 @@ _export = rule(
         "map_header": attr.label(allow_single_file = True),
         "production_axi": attr.label(mandatory = True),
         "core_binding": attr.label(allow_single_file = True),
+        "dma_rtl": attr.label(allow_single_file = True, mandatory = True),
         "exporter": attr.label(executable = True, cfg = "exec"),
     },
 )
@@ -321,6 +323,7 @@ def xup_fpga_targets(name):
         map_header = ":memory_map_svh",
         production_axi = ":production_axi",
         core_binding = "rtl/core_mini_axi.v.tpl",
+        dma_rtl = "//hdl/chisel:DmaAxi.sv",
         exporter = "//tools:export_fusesoc",
     )
     for phase in ["elab", "synth"]:

@@ -1,0 +1,24 @@
+load("@coralnpu_hw//rules:chisel.bzl", "chisel_cc_library", "chisel_library")
+load("@coralnpu_hw//rules:coco_tb.bzl", "verilator_cocotb_model")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "dma_axi",
+    srcs = ["DmaAxi.scala"],
+    deps = ["@coralnpu_hw//hdl/chisel/src/bus"],
+)
+
+chisel_cc_library(
+    name = "dma_axi_cc_library",
+    chisel_lib = ":dma_axi",
+    emit_class = "xup.EmitDmaAxi",
+    module_name = "DmaAxi",
+)
+
+verilator_cocotb_model(
+    name = "dma_axi_model",
+    cflags = ["-Wno-WIDTH"],
+    hdl_toplevel = "DmaAxi",
+    verilog_source = ":DmaAxi.sv",
+)

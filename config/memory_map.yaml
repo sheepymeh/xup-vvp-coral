@@ -23,6 +23,12 @@ regions:
     loadable: false
     executable: false
 
+  - name: dma
+    base: 0x40050000
+    size: 0x00001000
+    loadable: false
+    executable: false
+
   - name: external
     base: 0x80000000
     size: 0x00040000
